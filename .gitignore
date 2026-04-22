@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Model weights (too large for git — hosted on HuggingFace)
+*.pyth
+*.pth
+*.pt
+*.bin
+*.ckpt
+*.zip
+
+# Videos and large media
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# OS
+.DS_Store
+Thumbs.db
+.directory
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp files
+/tmp/
+*.tmp
+*.log
+
+# Streamlit
+.streamlit/
+
+# HuggingFace cache
+.cache/
