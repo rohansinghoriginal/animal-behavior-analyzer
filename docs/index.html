@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animal Behavior Analyzer — X3D-KABR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #06080d;
+      --surface:   #0c1018;
+      --surface2:  #111720;
+      --border:    rgba(255,255,255,0.07);
+      --teal:      #00c9a7;
+      --teal-dim:  rgba(0,201,167,0.12);
+      --teal-glow: rgba(0,201,167,0.25);
+      --amber:     #f59e0b;
+      --amber-dim: rgba(245,158,11,0.12);
+      --red:       #ff6b6b;
+      --text:      #dde6f0;
+      --muted:     #5a6a7e;
+      --mono:      'JetBrains Mono', monospace;
+      --display:   'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-weight: 300;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,201,167,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,201,167,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Scan line effect ───────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      opacity: 0.15;
+      animation: scan 8s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    @keyframes scan {
+      0%   { top: -2px; }
+      100% { top: 100vh; }
+    }
+
+    /* ── Layout ─────────────────────────────────────── */
+    .page { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      padding: 56px 0 48px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 24px;
+    }
+    .header-eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      color: var(--teal);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 20px; height: 1px;
+      background: var(--teal);
+    }
+    h1 {
+      font-family: var(--display);
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+    h1 span { color: var(--teal); }
+    .header-sub {
+      margin-top: 10px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--surface);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      white-space: nowrap;
+      align-self: start;
+      margin-top: 8px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── Loading & Error states ─────────────────────── */
+    #loading-state {
+      padding: 80px 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid var(--border);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #main-content { display: none; }
+
+    /* ── Stat cards row ─────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 40px 0;
+    }
+    .stat-card {
+      background: var(--surface);
+      padding: 24px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--teal), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .stat-card:hover::after { opacity: 1; }
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-family: var(--display);
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .stat-value.teal { color: var(--teal); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-sub {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ── Section headings ───────────────────────────── */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .section-heading h2 {
+      font-family: var(--display);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #fff;
+      text-transform: uppercase;
+    }
+    .section-heading .tag {
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      color: var(--teal);
+      border: 1px solid rgba(0,201,167,0.3);
+      padding: 3px 9px;
+      border-radius: 2px;
+    }
+    .divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Behavior bars ─────────────────────────────── */
+    .behavior-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 640px) { .behavior-grid { grid-template-columns: 1fr; } }
+
+    .behavior-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .behavior-row-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .behavior-name {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--text);
+    }
+    .behavior-pct {
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+    }
+    .behavior-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .behavior-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .behavior-count {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    /* ── Video section ──────────────────────────────── */
+    .video-section { margin-bottom: 48px; }
+    .video-wrapper {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .video-wrapper video {
+      width: 100%;
+      display: block;
+      max-height: 560px;
+      object-fit: contain;
+      background: #000;
+    }
+    .video-meta {
+      padding: 14px 20px;
+      background: var(--surface);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    .video-label { color: var(--teal); }
+
+    /* ── Charts ─────────────────────────────────────── */
+    .charts-section { margin-bottom: 48px; }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .chart-card-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .chart-card img {
+      width: 100%;
+      display: block;
+      padding: 16px;
+      background: #fff;
+    }
+
+    /* ── Footer ─────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .footer-left {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+    .footer-left strong { color: var(--text); }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--teal); }
+
+    /* ── Fade-in animation ──────────────────────────── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeIn 0.6s ease forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.45s; }
+    .delay-5 { animation-delay: 0.6s; }
+
+    /* ── No-data banner ─────────────────────────────── */
+    .no-data-banner {
+      background: var(--amber-dim);
+      border: 1px solid rgba(245,158,11,0.25);
+      border-radius: 4px;
+      padding: 14px 20px;
+      font-size: 11px;
+      color: var(--amber);
+      letter-spacing: 0.1em;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── HEADER ─────────────────────────────────────── -->
+  <header>
+    <div>
+      <div class="header-eyebrow">AI Wildlife Intelligence System</div>
+      <h1>Animal <span>Behavior</span><br>Analyzer</h1>
+      <p class="header-sub">X3D-KABR · YOLOv8 DETECTION · WACV 2024 · DRONE FOOTAGE</p>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      <span id="status-text">LOADING…</span>
+    </div>
+  </header>
+
+  <!-- ── LOADING STATE ──────────────────────────────── -->
+  <div id="loading-state">
+    <div class="spinner"></div>
+    FETCHING LATEST RUN DATA
+  </div>
+
+  <!-- ── MAIN CONTENT (shown after JSON loads) ──────── -->
+  <div id="main-content">
+
+    <!-- no-data banner shown before first Kaggle run -->
+    <div id="no-run-banner" class="no-data-banner" style="display:none;">
+      ⚠ &nbsp;No inference data yet — run the Kaggle notebook to populate this dashboard.
+    </div>
+
+    <!-- ── STAT CARDS ────────────────────────────────── -->
+    <div class="stats-row fade-in delay-1">
+      <div class="stat-card">
+        <div class="stat-label">Species</div>
+        <div class="stat-value teal" id="stat-species">—</div>
+        <div class="stat-sub">detected animal</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Classifications</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">behavior predictions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Dominant Behavior</div>
+        <div class="stat-value amber" id="stat-dominant">—</div>
+        <div class="stat-sub" id="stat-dominant-pct">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last Run</div>
+        <div class="stat-value" style="font-size:1.1rem;padding-top:6px;" id="stat-timestamp">—</div>
+        <div class="stat-sub" id="stat-source">—</div>
+      </div>
+    </div>
+
+    <!-- ── BEHAVIOR BREAKDOWN ─────────────────────────── -->
+    <div class="fade-in delay-2">
+      <div class="section-heading">
+        <h2>Behavior Breakdown</h2>
+        <div class="tag">TIME BUDGET</div>
+        <div class="divider"></div>
+      </div>
+      <div class="behavior-grid" id="behavior-grid"></div>
+    </div>
+
+    <!-- ── ANNOTATED VIDEO ───────────────────────────── -->
+    <div class="video-section fade-in delay-3">
+      <div class="section-heading">
+        <h2>Annotated Output</h2>
+        <div class="tag">INFERENCE VIDEO</div>
+        <div class="divider"></div>
+      </div>
+      <div class="video-wrapper">
+        <video controls preload="metadata" id="output-video">
+          <source src="behavior_output.mp4" type="video/mp4" />
+          Your browser does not support HTML5 video.
+        </video>
+        <div class="video-meta">
+          <span class="video-label">behavior_output.mp4</span>
+          <span id="video-species-label">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHARTS ────────────────────────────────────── -->
+    <div class="charts-section fade-in delay-4">
+      <div class="section-heading">
+        <h2>Visualizations</h2>
+        <div class="tag">ANALYSIS CHARTS</div>
+        <div class="divider"></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header">Time Budget — Behavior Distribution</div>
+          <img src="time_budget.png" alt="Behavior time budget pie chart" loading="lazy" />
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header">Temporal Timeline — Confidence over Time</div>
+          <img src="behavior_timeline.png" alt="Behavior timeline scatter plot" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FOOTER ────────────────────────────────────── -->
+    <footer class="fade-in delay-5">
+      <div class="footer-left">
+        <strong>X3D-KABR</strong> · Kenyan Animal Behavior Recognition · WACV 2024 ·
+        Pipeline: YOLOv8 → X3D-L · 7 behavior classes
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/rohansinghoriginal/animal-behavior-analyzer" target="_blank">GitHub Repo</a>
+        <a href="https://huggingface.co/imageomics/x3d-kabr-kinetics" target="_blank">Model Weights</a>
+        <a href="latest_run.json" target="_blank">Raw JSON</a>
+      </div>
+    </footer>
+
+  </div><!-- /main-content -->
+</div><!-- /page -->
+
+<script>
+  // ── Behavior color map ─────────────────────────────────────
+  const COLORS = {
+    'Walk':       '#2196F3',
+    'Trot':       '#9C27B0',
+    'Run':        '#F44336',
+    'Graze':      '#4CAF50',
+    'Browse':     '#009688',
+    'Head Up':    '#FF9800',
+    'Auto-Groom': '#E91E63',
+    'Occluded':   '#9E9E9E',
+  };
+
+  function formatTimestamp(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts.replace(' UTC', 'Z').replace(' ', 'T'));
+    return isNaN(d) ? ts : d.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
+    }) + ' UTC';
+  }
+
+  function animateCount(el, target) {
+    const duration = 1000, start = performance.now();
+    const step = ts => {
+      const p = Math.min((ts - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target).toLocaleString();
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  async function loadData() {
+    const loading = document.getElementById('loading-state');
+    const main    = document.getElementById('main-content');
+
+    try {
+      const resp = await fetch('latest_run.json?v=' + Date.now());
+
+      if (!resp.ok) throw new Error('not found');
+      const data = await resp.json();
+
+      // Hide loading, show content
+      loading.style.display = 'none';
+      main.style.display = 'block';
+
+      // ── Status badge ──────────────────────────────────────
+      document.getElementById('status-text').textContent =
+        'LIVE · ' + (data.run_timestamp || 'UNKNOWN');
+
+      // ── Stat cards ────────────────────────────────────────
+      document.getElementById('stat-species').textContent = data.species || '—';
+      document.getElementById('video-species-label').textContent =
+        (data.species || '—') + ' · ' + (data.video_source || '—');
+
+      const totalEl = document.getElementById('stat-total');
+      totalEl.textContent = '0';
+      animateCount(totalEl, data.total_predictions || 0);
+
+      // Dominant behavior
+      const pcts = data.behavior_percent || {};
+      const dom  = Object.entries(pcts).sort((a,b) => b[1]-a[1])[0];
+      if (dom) {
+        document.getElementById('stat-dominant').textContent = dom[0];
+        document.getElementById('stat-dominant-pct').textContent = dom[1] + '% of session';
+      }
+
+      // Timestamp
+      document.getElementById('stat-timestamp').textContent =
+        (data.run_timestamp || '—').split(' ')[0];
+      document.getElementById('stat-source').textContent =
+        data.video_source || '—';
+
+      // ── Behavior bars ─────────────────────────────────────
+      const grid = document.getElementById('behavior-grid');
+      grid.innerHTML = '';
+      const sorted = Object.entries(pcts).sort((a,b) => b[1]-a[1]);
+      sorted.forEach(([label, pct], i) => {
+        const count = (data.behavior_counts || {})[label] || 0;
+        const color = COLORS[label] || '#666';
+        const row   = document.createElement('div');
+        row.className = 'behavior-row';
+        row.innerHTML = `
+          <div class="behavior-row-inner">
+            <span class="behavior-name">${label}</span>
+            <span class="behavior-pct">${pct}%</span>
+          </div>
+          <div class="behavior-track">
+            <div class="behavior-fill" style="background:${color};" data-pct="${pct}"></div>
+          </div>
+          <div class="behavior-count">${count.toLocaleString()} predictions</div>
+        `;
+        grid.appendChild(row);
+        // Animate bars after a stagger
+        setTimeout(() => {
+          row.querySelector('.behavior-fill').style.width = pct + '%';
+        }, 100 + i * 60);
+      });
+
+    } catch (err) {
+      // JSON not found yet — show placeholder layout anyway
+      loading.style.display = 'none';
+      main.style.display = 'block';
+      document.getElementById('no-run-banner').style.display = 'block';
+      document.getElementById('status-text').textContent = 'AWAITING FIRST RUN';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
