@@ -1,7 +1,7 @@
 {
   "species": "Giraffe",
   "video_source": "giraffe_drone.mp4",
-  "run_timestamp": "2026-05-10 18:00 UTC",
+  "run_timestamp": "2026-05-10 18:08 UTC",
   "total_predictions": 2649,
   "behavior_counts": {
     "Graze": 2181,
